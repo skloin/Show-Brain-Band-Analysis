@@ -1,99 +1,86 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# --- 1. DATA LOADING ---
-# New Sheet ID from your latest link
-SHEET_ID = "1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ"
-# Using /export?format=csv pulls the first sheet (Sheet2) automatically
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ/edit?usp=drivesdk"
+# Page Configuration
+st.set_page_config(page_title="Artist Cost Analysis", layout="wide")
+st.title("🎨 Artist Cost & ROI Analysis")
 
-@st.cache_data(ttl=60)
-def load_data():
-    # Load the CSV data
-    data = pd.read_csv(SHEET_URL)
-    # Ensure we only keep rows where there is an actual artist name
-    return data.dropna(subset=[data.columns[0]])
+# Establish Connection
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-try:
-    df = load_data()
-    # [span_2](start_span)Based on your sheet structure[span_2](end_span):
-    # Col 0: Band Name
-    # Col 1: Average Cost
-    # Col 2: IG Followers
-    # Col 3: Associated IG Followers
-    # Col 7: Spotify Listeners
-except Exception as e:
-    st.error("Connection Error: Please ensure your Google Sheet sharing is set to 'Anyone with the link can view'.")
-    st.stop()
+# --- CACHED DATA FETCHING ---
+def get_data():
+    # Load Sheet 2 (Artist Data) and Assumptions
+    artists_df = conn.read(worksheet="Sheet 2", ttl="0")
+    assumptions_df = conn.read(worksheet="Assumptions", ttl="0")
+    return artists_df, assumptions_df
 
-st.set_page_config(page_title="Band Scout", layout="centered")
-st.title("🎸 Band Affordability Scout")
+artists_df, assumptions_df = get_data()
 
-# --- 2. SIDEBAR BUDGET CONFIG ---
-st.sidebar.header("Configure Budgets")
-budgets = {
-    "Headliner": st.sidebar.number_input("Headliner Max ($)", value=600),
-    "Direct Support": st.sidebar.number_input("Direct Support Max ($)", value=200),
-    "Indirect Support": st.sidebar.number_input("Indirect Support Max ($)", value=100),
-    "Opener": st.sidebar.number_input("Opener Max ($)", value=0)
-}
+# Helper to get assumption values as a dict
+config = dict(zip(assumptions_df.iloc[:, 0], assumptions_df.iloc[:, 1]))
 
-# --- 3. ARTIST SELECTION ---
-# Fixed: Get unique names from Column 0 and remove header text if present
-artist_list = df.iloc[:, 0].astype(str).tolist()
-artist_list = [a for a in artist_list if a not in ["Band Name", "Artist", "nan"]]
-selected_artist = st.selectbox("Search for an Artist:", ["+ Add New Artist"] + sorted(artist_list))
+# --- NAVIGATION ---
+menu = ["Artist Dashboard", "Add New Artist", "Configure Assumptions"]
+choice = st.sidebar.selectbox("Navigation", menu)
 
-# --- 4. FORM LOGIC ---
-if selected_artist == "+ Add New Artist":
-    name = st.text_input("New Artist Name")
-    ig = st.number_input("IG Followers", value=0)
-    assoc_ig = st.number_input("Associated IG", value=0)
-    spotify = st.number_input("Spotify Monthlies", value=0)
-    cost = st.number_input("Average Cost ($)", value=0)
-else:
-    # Match the row by name
-    row = df[df.iloc[:, 0] == selected_artist].iloc[0]
-    name = selected_artist
+# --- CALCULATOR LOGIC ---
+def calculate_metrics(cost, ig, spotify, config):
+    # Example logic based on common analysis formulas
+    # Replace these with your specific math from the spreadsheet
+    cost_per_ig = cost / ig if ig > 0 else 0
+    cost_per_spotify = cost / spotify if spotify > 0 else 0
+    total_reach = ig + spotify
+    reach_score = (total_reach * config.get('Reach Multiplier', 1.0))
     
-    def clean_num(val):
-        try:
-            return int(float(str(val).replace(',', '').replace('$', ''))) if pd.notnull(val) else 0
-        except: return 0
+    return {
+        "Cost per IG Follower": f"${cost_per_ig:.4f}",
+        "Cost per Spotify Follower": f"${cost_per_spotify:.4f}",
+        "Total Reach": f"{total_reach:,}",
+        "Projected ROI": f"{reach_score / cost:.2f}x" if cost > 0 else "0"
+    }
 
-    # [span_3](start_span)Map to columns[span_3](end_span)
-    cost = st.number_input("Average Cost ($)", value=clean_num(row.iloc[1]))
-    ig = st.number_input("IG Followers", value=clean_num(row.iloc[2]))
-    assoc_ig = st.number_input("Associated IG", value=clean_num(row.iloc[3]))
-    spotify = st.number_input("Spotify Monthlies", value=clean_num(row.iloc[7]))
+# --- PAGES ---
+if choice == "Artist Dashboard":
+    st.header("Existing Artist Analysis")
+    artist_list = artists_df['Artist'].tolist()
+    selected_artist = st.selectbox("Select an Artist", artist_list)
+    
+    if selected_artist:
+        data = artists_df[artists_df['Artist'] == selected_artist].iloc[0]
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Current Cost", f"${data['Cost']:,}")
+        col2.metric("IG Followers", f"{data['IG Followers']:,}")
+        col3.metric("Spotify Followers", f"{data['Spotify']:,}")
+        
+        st.subheader("Calculated Fields (from Sheet)")
+        # This displays the calculated columns already present in your sheet
+        st.dataframe(artists_df[artists_df['Artist'] == selected_artist])
 
-# --- 5. CALCULATION LOGIC ---
-def score_metric(val):
-    if val > 50000: return 5
-    elif val > 20000: return 4
-    elif val > 10000: return 3
-    elif val > 5000: return 2
-    return 1
+elif choice == "Add New Artist":
+    st.header("New Artist Projection")
+    with st.form("new_artist_form"):
+        name = st.text_input("Artist Name")
+        cost = st.number_input("Proposed Cost ($)", min_value=0.0)
+        ig = st.number_input("IG Followers", min_value=0)
+        spotify = st.number_input("Spotify Followers", min_value=0)
+        submit = st.form_submit_button("Calculate & Preview")
+        
+        if submit:
+            results = calculate_metrics(cost, ig, spotify, config)
+            st.success(f"Projections for {name}:")
+            cols = st.columns(len(results))
+            for i, (label, val) in enumerate(results.items()):
+                cols[i].metric(label, val)
 
-# [span_4](start_span)Logic based on spreadsheet strength totals[span_4](end_span)
-total_strength = score_metric(ig + assoc_ig) + score_metric(spotify)
-
-if total_strength >= 8: bill = "Headliner"
-elif total_strength >= 6: bill = "Direct Support"
-elif total_strength >= 3: bill = "Indirect Support"
-else: bill = "Opener"
-
-is_affordable = cost <= budgets[bill]
-
-# --- 6. RESULTS DISPLAY ---
-st.divider()
-st.subheader(f"Analysis: {name}")
-
-c1, c2 = st.columns(2)
-c1.metric("Strength Score", f"{total_strength}/10")
-c1.metric("Placement", bill)
-
-if is_affordable:
-    st.success(f"✅ AFFORDABLE: Fits the {bill} budget of ${budgets[bill]}.")
-else:
-    st.error(f"❌ TOO EXPENSIVE: Exceeds the {bill} budget by ${cost - budgets[bill]}.")
+elif choice == "Configure Assumptions":
+    st.header("Settings & Assumptions")
+    st.info("Update the values below to change how the 'New Artist' formulas calculate.")
+    
+    # Enable editing of the assumptions table
+    edited_df = st.data_editor(assumptions_df, num_rows="dynamic")
+    
+    if st.button("Save Assumptions to Google Sheets"):
+        conn.update(worksheet="Assumptions", data=edited_df)
+        st.success("Assumptions updated successfully!")
