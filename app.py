@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.title("SB Artist Affordability Calculator")
+st.title("Show Brain Artist Analysis")
 
 # --- Configuration Sidebar ---
 st.sidebar.header("Budget Configuration")
