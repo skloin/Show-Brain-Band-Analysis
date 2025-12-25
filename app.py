@@ -12,7 +12,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def load_data():
     try:
         # NOTE: Rename your tab in Google Sheets to "Sheet2" (no space)
-        artists = conn.read(worksheet="Sheet2", ttl="0")
+        artists = conn.read(worksheet="Log", ttl="0")
         assumptions = conn.read(worksheet="Assumptions", ttl="0")
         return artists, assumptions
     except Exception as e:
