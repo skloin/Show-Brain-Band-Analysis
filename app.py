@@ -2,36 +2,34 @@ import streamlit as st
 import pandas as pd
 
 # --- 1. DATA LOADING ---
-SHEET_ID = "1rXgY7ZLw9wsnJIAopV6XWG41uJhXkKNrLQTvY8OH1m8"
-GID = "2125624029"
-# Using the /pub export format for better stability
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID}"
+# New Sheet ID from your latest link
+SHEET_ID = "1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ"
+# Using /export?format=csv pulls the first sheet (Sheet2) automatically
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 @st.cache_data(ttl=60)
 def load_data():
-    # Load the sheet and find where the actual data starts
-    raw_df = pd.read_csv(SHEET_URL)
-    
-    # Clean up: Find the first row that actually contains "Artist" or "Headliner"
-    # To ensure we get column A, we'll look for the column that has 'Artist' in the header
-    return raw_df
+    # Load the CSV data
+    data = pd.read_csv(SHEET_URL)
+    # Ensure we only keep rows where there is an actual artist name
+    return data.dropna(subset=[data.columns[0]])
 
 try:
     df = load_data()
-    # Find the correct column indices based on your sheet's headers
-    # We'll use the column names directly to avoid index shifting
-    artist_col = df.columns[0]   # Column A
-    ig_col = df.columns[2]       # Column C
-    assoc_col = df.columns[3]    # Column D
-    spotify_col = df.columns[7]  # Column H
-    cost_col = df.columns[9]     # Column J
+    # [span_2](start_span)Based on your sheet structure[span_2](end_span):
+    # Col 0: Band Name
+    # Col 1: Average Cost
+    # Col 2: IG Followers
+    # Col 3: Associated IG Followers
+    # Col 7: Spotify Listeners
 except Exception as e:
-    st.error("Sheet Error: Please make sure 'Anyone with the link' can View.")
+    st.error("Connection Error: Please ensure your Google Sheet sharing is set to 'Anyone with the link can view'.")
     st.stop()
 
+st.set_page_config(page_title="Band Scout", layout="centered")
 st.title("🎸 Band Affordability Scout")
 
-# --- 2. SIDEBAR BUDGETS ---
+# --- 2. SIDEBAR BUDGET CONFIG ---
 st.sidebar.header("Configure Budgets")
 budgets = {
     "Headliner": st.sidebar.number_input("Headliner Max ($)", value=600),
@@ -41,37 +39,35 @@ budgets = {
 }
 
 # --- 3. ARTIST SELECTION ---
-# We filter out any rows where the Artist name is a number or a formula error
-clean_artist_list = df[artist_col].dropna().astype(str).tolist()
-# Filter out "Header" text if it accidentally got pulled in
-clean_artist_list = [x for x in clean_artist_list if x not in ["Artist", "nan", "0"]]
+# Fixed: Get unique names from Column 0 and remove header text if present
+artist_list = df.iloc[:, 0].astype(str).tolist()
+artist_list = [a for a in artist_list if a not in ["Band Name", "Artist", "nan"]]
+selected_artist = st.selectbox("Search for an Artist:", ["+ Add New Artist"] + sorted(artist_list))
 
-artist_choice = st.selectbox("Select an Artist:", ["+ Add New Artist"] + clean_artist_list)
-
-# --- 4. DATA INPUTS ---
-if artist_choice == "+ Add New Artist":
+# --- 4. FORM LOGIC ---
+if selected_artist == "+ Add New Artist":
     name = st.text_input("New Artist Name")
     ig = st.number_input("IG Followers", value=0)
     assoc_ig = st.number_input("Associated IG", value=0)
     spotify = st.number_input("Spotify Monthlies", value=0)
     cost = st.number_input("Average Cost ($)", value=0)
 else:
-    # Find the specific row for that artist
-    row = df[df[artist_col] == artist_choice].iloc[0]
-    name = artist_choice
+    # Match the row by name
+    row = df[df.iloc[:, 0] == selected_artist].iloc[0]
+    name = selected_artist
     
-    def to_int(val):
+    def clean_num(val):
         try:
-            if pd.isna(val): return 0
-            return int(float(str(val).replace(',', '').replace('$', '')))
+            return int(float(str(val).replace(',', '').replace('$', ''))) if pd.notnull(val) else 0
         except: return 0
 
-    ig = st.number_input("IG Followers", value=to_int(row[ig_col]))
-    assoc_ig = st.number_input("Associated IG", value=to_int(row[assoc_col]))
-    spotify = st.number_input("Spotify Monthlies", value=to_int(row[spotify_col]))
-    cost = st.number_input("Average Cost ($)", value=to_int(row[cost_col]))
+    # [span_3](start_span)Map to columns[span_3](end_span)
+    cost = st.number_input("Average Cost ($)", value=clean_num(row.iloc[1]))
+    ig = st.number_input("IG Followers", value=clean_num(row.iloc[2]))
+    assoc_ig = st.number_input("Associated IG", value=clean_num(row.iloc[3]))
+    spotify = st.number_input("Spotify Monthlies", value=clean_num(row.iloc[7]))
 
-# --- 5. LOGIC ---
+# --- 5. CALCULATION LOGIC ---
 def score_metric(val):
     if val > 50000: return 5
     elif val > 20000: return 4
@@ -79,6 +75,7 @@ def score_metric(val):
     elif val > 5000: return 2
     return 1
 
+# [span_4](start_span)Logic based on spreadsheet strength totals[span_4](end_span)
 total_strength = score_metric(ig + assoc_ig) + score_metric(spotify)
 
 if total_strength >= 8: bill = "Headliner"
@@ -86,17 +83,17 @@ elif total_strength >= 6: bill = "Direct Support"
 elif total_strength >= 3: bill = "Indirect Support"
 else: bill = "Opener"
 
-# Check affordability
-max_allowed = budgets[bill]
-affordable = cost <= max_allowed
+is_affordable = cost <= budgets[bill]
 
-# --- 6. DISPLAY ---
+# --- 6. RESULTS DISPLAY ---
 st.divider()
-col1, col2 = st.columns(2)
-col1.metric("Strength", f"{total_strength}/10")
-col1.metric("Placement", bill)
+st.subheader(f"Analysis: {name}")
 
-if affordable:
-    st.success(f"✅ AFFORDABLE\nFits {bill} budget of ${max_allowed}")
+c1, c2 = st.columns(2)
+c1.metric("Strength Score", f"{total_strength}/10")
+c1.metric("Placement", bill)
+
+if is_affordable:
+    st.success(f"✅ AFFORDABLE: Fits the {bill} budget of ${budgets[bill]}.")
 else:
-    st.error(f"❌ OVER BUDGET\nExceeds {bill} budget by ${cost - max_allowed}")
+    st.error(f"❌ TOO EXPENSIVE: Exceeds the {bill} budget by ${cost - budgets[bill]}.")
