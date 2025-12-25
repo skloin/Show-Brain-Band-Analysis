@@ -5,7 +5,7 @@ import pandas as pd
 # New Sheet ID from your latest link
 SHEET_ID = "1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ"
 # Using /export?format=csv pulls the first sheet (Sheet2) automatically
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ/edit?usp=drivesdk"
 
 @st.cache_data(ttl=60)
 def load_data():
