@@ -120,7 +120,7 @@ def check_affordability(bill_label, cost, assumptions):
 # -----------------------------------------------------------------------------
 # UI LAYOUT
 # -----------------------------------------------------------------------------
-st.title("SB Artist Cost Analysis (Live Sync)")
+st.title("Show Brain Booking Analyzer (Live Sync)")
 
 # --- Sidebar ---
 st.sidebar.header("Configuration")
