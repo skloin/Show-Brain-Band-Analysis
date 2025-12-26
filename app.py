@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 
 # -----------------------------------------------------------------------------
-# DATA LOADING
+# DATA & SESSION STATE MANAGEMENT
 # -----------------------------------------------------------------------------
 def get_initial_data():
-    # Data parsed from the "Log" sheet
-    # Columns: Band Name, Avg Cost, IG, Assoc IG, Spotify
-    raw_data = [
+    # Only return this list if session state is empty
+    return [
         {"name": "Bec Lauder and the Noise", "cost": 0, "ig": 140000, "assoc_ig": 0, "spotify": 28400},
         {"name": "Crazy and the Brains", "cost": 0, "ig": 9500, "assoc_ig": 0, "spotify": 20200},
         {"name": "Torture and The Desert Spiders", "cost": 0, "ig": 5300, "assoc_ig": 0, "spotify": 7200},
@@ -64,13 +63,28 @@ def get_initial_data():
         {"name": "A Place To Bury Strangers", "cost": 1100, "ig": 57300, "assoc_ig": 0, "spotify": 63900},
         {"name": "The Mystery Lights", "cost": 2100, "ig": 26700, "assoc_ig": 0, "spotify": 591400},
     ]
-    return pd.DataFrame(raw_data)
+
+# Initialize Session State
+if 'artists' not in st.session_state:
+    st.session_state['artists'] = get_initial_data()
+
+# Helper to add new artist
+def add_artist(name, cost, ig, assoc_ig, spotify):
+    new_entry = {
+        "name": name, 
+        "cost": cost, 
+        "ig": ig, 
+        "assoc_ig": assoc_ig, 
+        "spotify": spotify
+    }
+    st.session_state['artists'].append(new_entry)
+    # Rerun logic is automatic in buttons usually, but explicit rerun can ensure UI updates instantly
+    # st.experimental_rerun() # Optional, depending on streamlit version
 
 # -----------------------------------------------------------------------------
 # CALCULATIONS
 # -----------------------------------------------------------------------------
 def get_marketing_strength(total_ig):
-    # Based on sheet analysis
     if total_ig < 3000: return 1
     if total_ig < 7000: return 2
     if total_ig < 11000: return 3
@@ -78,7 +92,6 @@ def get_marketing_strength(total_ig):
     return 5
 
 def get_donation_strength(spotify):
-    # Based on sheet analysis
     if spotify < 4900: return 1
     if spotify < 6000: return 2
     if spotify < 15000: return 3
@@ -86,7 +99,6 @@ def get_donation_strength(spotify):
     return 5
 
 def get_bill_potential_and_label(total_strength):
-    # Returns (Label, Tier Code for sorting/logic)
     if total_strength <= 2: return "Opener", "Opener"
     if total_strength <= 5: return "Indirect Support", "Indirect Support"
     if total_strength <= 7: return "Direct Support", "Direct Support"
@@ -101,9 +113,11 @@ def check_affordability(bill_label, cost, assumptions):
 # -----------------------------------------------------------------------------
 st.title("SB Artist Cost Analysis")
 
-# --- Sidebar: Assumptions ---
-st.sidebar.header("Assumptions Configuration")
-st.sidebar.markdown("Configure budget per bill placement.")
+# --- Sidebar ---
+st.sidebar.header("Configuration")
+
+# 1. Budget Assumptions
+st.sidebar.subheader("Budget Assumptions")
 budget_headliner = st.sidebar.number_input("Headliner Budget ($)", value=600)
 budget_direct = st.sidebar.number_input("Direct Support Budget ($)", value=200)
 budget_indirect = st.sidebar.number_input("Indirect Support Budget ($)", value=100)
@@ -116,42 +130,71 @@ assumptions = {
     "Opener": budget_opener
 }
 
-# --- Main: Artist Selection ---
-df = get_initial_data()
+# 2. Add New Artist Section
+st.sidebar.markdown("---")
+with st.sidebar.expander("➕ Add New Artist"):
+    with st.form("add_artist_form"):
+        new_name = st.text_input("Band Name")
+        new_base_cost = st.number_input("Cost ($)", min_value=0, value=0)
+        new_base_ig = st.number_input("IG Followers", min_value=0, value=0)
+        new_base_assoc = st.number_input("Assoc. IG", min_value=0, value=0)
+        new_base_spot = st.number_input("Spotify", min_value=0, value=0)
+        
+        submitted = st.form_submit_button("Add Artist")
+        if submitted:
+            if new_name:
+                add_artist(new_name, new_base_cost, new_base_ig, new_base_assoc, new_base_spot)
+                st.success(f"Added {new_name}!")
+            else:
+                st.error("Please enter a name.")
+
+# --- Main Area ---
+
+# Convert session state list to DataFrame for the dropdown
+df = pd.DataFrame(st.session_state['artists'])
 artist_names = df['name'].tolist()
-selected_artist_name = st.selectbox("Select an Artist", artist_names)
+
+# Sort names alphabetically for easier finding, but keep "new" ones visible? 
+# Usually alphabetical is best.
+artist_names.sort()
+
+# Selector
+selected_artist_name = st.selectbox("Select an Artist", artist_names, index=0)
 
 # Get current data for selected artist
+# We use the dataframe we just built from session state
 artist_row = df[df['name'] == selected_artist_name].iloc[0]
 
 st.markdown("---")
 col1, col2 = st.columns(2)
 
-# --- Input Section ---
+# --- Input Section (Main) ---
 with col1:
-    st.subheader("Edit Artist Values")
-    new_cost = st.number_input("Average Cost ($)", value=int(artist_row['cost']))
-    new_ig = st.number_input("IG Followers", value=int(artist_row['ig']))
-    new_assoc_ig = st.number_input("Associated IG Followers", value=int(artist_row['assoc_ig']))
-    new_spotify = st.number_input("Spotify Listeners", value=int(artist_row['spotify']))
+    st.subheader(f"Edit Values: {selected_artist_name}")
+    st.caption("Adjust values here to see how metrics change without saving permanently.")
+    
+    # Defaults come from the stored data
+    calc_cost = st.number_input("Average Cost ($)", value=int(artist_row['cost']))
+    calc_ig = st.number_input("IG Followers", value=int(artist_row['ig']))
+    calc_assoc_ig = st.number_input("Associated IG Followers", value=int(artist_row['assoc_ig']))
+    calc_spotify = st.number_input("Spotify Listeners", value=int(artist_row['spotify']))
 
 # --- Calculation Section ---
 # 1. Total IG
-total_ig = new_ig + new_assoc_ig
+total_ig = calc_ig + calc_assoc_ig
 
 # 2. Cost Efficiency (IG per $1)
-# Avoid division by zero
-eff_divisor = new_cost if new_cost > 0 else 1
+eff_divisor = calc_cost if calc_cost > 0 else 1
 cost_efficiency = total_ig / eff_divisor
 
 # 3. Strength Scores
 marketing_strength = get_marketing_strength(total_ig)
-donation_strength = get_donation_strength(new_spotify)
+donation_strength = get_donation_strength(calc_spotify)
 total_strength = marketing_strength + donation_strength
 
 # 4. Placement & Affordability
 bill_label, bill_tier = get_bill_potential_and_label(total_strength)
-affordability = check_affordability(bill_label, new_cost, assumptions)
+affordability = check_affordability(bill_label, calc_cost, assumptions)
 
 # --- Output Section ---
 with col2:
@@ -161,7 +204,7 @@ with col2:
     
     # Cost Efficiency
     eff_val = f"{cost_efficiency:,.0f}"
-    if new_cost == 0: eff_val += " (Infinite/Base)"
+    if calc_cost == 0: eff_val += " (Infinite/Base)"
     st.metric("Cost Efficiency (IG/$)", eff_val)
     
     st.markdown("#### Strength Metrics")
@@ -179,4 +222,4 @@ with col2:
         st.error(f"**Affordable?** {affordability}")
 
 st.markdown("---")
-st.caption("Data derived from 'Copy of SB Artist Cost Analysis' Google Sheet. Calculations based on inferred formulas from Sheet 2.")
+st.caption("Data stored in temporary session. Refreshing the page will reset to default artists.")
