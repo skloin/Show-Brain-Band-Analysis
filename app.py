@@ -6,7 +6,6 @@ from google.oauth2.service_account import Credentials
 # -----------------------------------------------------------------------------
 # GOOGLE SHEETS CONNECTION
 # -----------------------------------------------------------------------------
-# Define the scope
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -15,41 +14,55 @@ SCOPES = [
 @st.cache_resource
 def get_connection():
     """Authenticates and returns the gspread client."""
-    # Load credentials from secrets.toml
     creds_dict = st.secrets["gcp_service_account"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     client = gspread.authorize(creds)
     return client
 
 def get_data():
-    """Fetches data from the Google Sheet."""
+    """Fetches data safely, ignoring empty header columns."""
     client = get_connection()
-    # Open the sheet by URL
     sheet_url = "https://docs.google.com/spreadsheets/d/1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ/edit?usp=drivesdk"
     sh = client.open_by_url(sheet_url)
+    worksheet = sh.get_worksheet(0) # First tab
     
-    # Selecting the worksheet. 
-    # Adjust this if your data is on "Sheet1" or "Sheet 2"
-    # Using index 0 (first tab) usually works best if it's the main list.
-    worksheet = sh.get_worksheet(0) 
+    # CRASH-PROOF METHOD: Get all values as a simple list of lists
+    # This ignores "duplicate headers" errors because it doesn't map them automatically
+    raw_rows = worksheet.get_all_values()
     
-    # Get all records as a list of dicts
-    data = worksheet.get_all_records()
+    # Row 0 is headers, Row 1+ is data
+    # We manually map the columns by Index to be safe
+    # Based on your CSV: 
+    # Col 0 = Band Name, Col 1 = Cost, Col 2 = IG, Col 3 = Assoc IG, Col 7 = Spotify
     
-    # Clean up keys to match our internal logic if headers are different in the sheet
-    # Assuming Sheet Headers: Band Name, Avg Cost, IG, Assoc IG, Spotify
-    # We map them to our internal simple keys: name, cost, ig, assoc_ig, spotify
     cleaned_data = []
-    for row in data:
-        cleaned_data.append({
-            "name": str(row.get("Band Name", "")), # Adjust "Band Name" to exact header in sheet
-            "cost": int(row.get("Avg Cost", 0) or 0),
-            "ig": int(row.get("IG", 0) or 0),
-            "assoc_ig": int(row.get("Assoc IG", 0) or 0),
-            "spotify": int(row.get("Spotify", 0) or 0)
-        })
-    
-    return pd.DataFrame(cleaned_data), worksheet
+    # Skip the first row (headers)
+    for row in raw_rows[1:]:
+        # specific try/except to handle if a row is shorter than expected
+        try:
+            # Clean helper function to remove symbols like '$' or ','
+            def clean_num(val):
+                if isinstance(val, str):
+                    return val.replace('$', '').replace(',', '').strip()
+                return val
+
+            # Parse numbers safely
+            c_cost = int(clean_num(row[1]) or 0) if len(row) > 1 else 0
+            c_ig = int(clean_num(row[2]) or 0) if len(row) > 2 else 0
+            c_assoc = int(clean_num(row[3]) or 0) if len(row) > 3 else 0
+            c_spot = int(clean_num(row[7]) or 0) if len(row) > 7 else 0 # Spotify is usually column H (index 7)
+
+            cleaned_data.append({
+                "name": row[0],
+                "cost": c_cost,
+                "ig": c_ig,
+                "assoc_ig": c_assoc,
+                "spotify": c_spot
+            })
+        except Exception:
+            continue # Skip bad rows
+            
+    return pd.DataFrame(cleaned_data)
 
 def add_artist_to_sheet(name, cost, ig, assoc_ig, spotify):
     """Appends a new artist to the Google Sheet."""
@@ -58,13 +71,19 @@ def add_artist_to_sheet(name, cost, ig, assoc_ig, spotify):
     sh = client.open_by_url(sheet_url)
     worksheet = sh.get_worksheet(0)
     
-    # Create the row to append
-    # MUST MATCH THE ORDER OF COLUMNS IN YOUR GOOGLE SHEET
-    # Example: Band Name | Avg Cost | IG | Assoc IG | Spotify
-    new_row = [name, cost, ig, assoc_ig, spotify]
+    # We only append the columns we control. 
+    # The sheet formulas will fill in the blanks automatically for the other columns.
+    # Order: Name, Cost, IG, AssocIG, TotalIG(formula), Efficiency(formula), Strength(formula), Spotify
+    # To support your sheet's structure, we might need empty strings for formula columns if we append a whole row.
+    # Safer Strategy: Append just the values we have to the first few columns.
+    
+    # Construct row: Name, Cost, IG, AssocIG, "", "", "", Spotify
+    # Note: This might shift if your sheet expects exact column matching. 
+    # For now, we append the raw inputs. You may need to drag formulas down in the sheet itself.
+    new_row = [name, cost, ig, assoc_ig, "", "", "", spotify]
     
     worksheet.append_row(new_row)
-    st.cache_data.clear() # Clear cache to force reload of data next time
+    st.cache_data.clear()
 
 # -----------------------------------------------------------------------------
 # CALCULATIONS
@@ -140,9 +159,9 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
 
 # --- Main Area ---
 
-# Load Data Live
 try:
-    df, _ = get_data()
+    # Fetch Data
+    df = get_data()
     
     # Sort names
     artist_names = sorted(df['name'].unique().tolist())
@@ -203,10 +222,5 @@ try:
             st.error(f"**Affordable?** {affordability}")
 
 except Exception as e:
-    st.error("Could not connect to Google Sheet.")
-    st.write("1. Check your `secrets.toml` file.")
-    st.write("2. Ensure you shared the sheet with the Service Account Email.")
-    st.write(f"Error details: {e}")
-
-st.markdown("---")
-st.caption("Live Connection Active. 'Add Artist' writes directly to the Sheet.")
+    st.error("Error reading data.")
+    st.write(f"Details: {e}")
