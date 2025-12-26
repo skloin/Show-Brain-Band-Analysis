@@ -4,7 +4,6 @@ import pandas as pd
 # -----------------------------------------------------------------------------
 # DATA LOADING
 # -----------------------------------------------------------------------------
-# Helper to structure the data from the sheet
 def get_initial_data():
     # Data parsed from the "Log" sheet
     # Columns: Band Name, Avg Cost, IG, Assoc IG, Spotify
@@ -180,4 +179,4 @@ with col2:
         st.error(f"**Affordable?** {affordability}")
 
 st.markdown("---")
-[span_0](start_span)st.caption("Data derived from 'Copy of SB Artist Cost Analysis' Google Sheet[span_0](end_span). Calculations based on inferred formulas from Sheet 2.")
+st.caption("Data derived from 'Copy of SB Artist Cost Analysis' Google Sheet. Calculations based on inferred formulas from Sheet 2.")
