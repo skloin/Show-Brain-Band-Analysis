@@ -1,106 +1,183 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-st.set_page_config(page_title="SB Artist Analysis", layout="wide")
-st.title("📊 SB Artist Cost & ROI Analysis")
+# -----------------------------------------------------------------------------
+# DATA LOADING
+# -----------------------------------------------------------------------------
+# Helper to structure the data from the sheet
+def get_initial_data():
+    # Data parsed from the "Log" sheet
+    # Columns: Band Name, Avg Cost, IG, Assoc IG, Spotify
+    raw_data = [
+        {"name": "Bec Lauder and the Noise", "cost": 0, "ig": 140000, "assoc_ig": 0, "spotify": 28400},
+        {"name": "Crazy and the Brains", "cost": 0, "ig": 9500, "assoc_ig": 0, "spotify": 20200},
+        {"name": "Torture and The Desert Spiders", "cost": 0, "ig": 5300, "assoc_ig": 0, "spotify": 7200},
+        {"name": "Puzzled Panther", "cost": 0, "ig": 7500, "assoc_ig": 64400, "spotify": 3600},
+        {"name": "Jasno Swarez", "cost": 0, "ig": 16600, "assoc_ig": 0, "spotify": 3000},
+        {"name": "Abby Jeane + The Shadow Band", "cost": 0, "ig": 7700, "assoc_ig": 0, "spotify": 2100},
+        {"name": "Frida Kill", "cost": 0, "ig": 4300, "assoc_ig": 0, "spotify": 1200},
+        {"name": "Two Man Giant Squid", "cost": 0, "ig": 2500, "assoc_ig": 0, "spotify": 900},
+        {"name": "Joudy", "cost": 0, "ig": 4200, "assoc_ig": 0, "spotify": 700},
+        {"name": "Dog Date", "cost": 0, "ig": 3000, "assoc_ig": 0, "spotify": 700},
+        {"name": "Certain Death", "cost": 0, "ig": 2400, "assoc_ig": 0, "spotify": 460},
+        {"name": "Crush Fund", "cost": 0, "ig": 4900, "assoc_ig": 0, "spotify": 400},
+        {"name": "Adult Human Females", "cost": 0, "ig": 4000, "assoc_ig": 0, "spotify": 200},
+        {"name": "Genre Is Death", "cost": 0, "ig": 2600, "assoc_ig": 0, "spotify": 160},
+        {"name": "Toxic Tito", "cost": 0, "ig": 3500, "assoc_ig": 57800, "spotify": 100},
+        {"name": "Bubbles", "cost": 0, "ig": 1500, "assoc_ig": 0, "spotify": 100},
+        {"name": "Slashers", "cost": 0, "ig": 8500, "assoc_ig": 0, "spotify": 72},
+        {"name": "Surgeon General", "cost": 0, "ig": 1300, "assoc_ig": 0, "spotify": 50},
+        {"name": "Figure Of Fun", "cost": 0, "ig": 800, "assoc_ig": 0, "spotify": 28},
+        {"name": "Wifeknife", "cost": 0, "ig": 1300, "assoc_ig": 0, "spotify": 25},
+        {"name": "Pons", "cost": 93, "ig": 9800, "assoc_ig": 0, "spotify": 1300},
+        {"name": "Tetchy", "cost": 100, "ig": 6900, "assoc_ig": 0, "spotify": 2200},
+        {"name": "Pop Music Fever Dream", "cost": 140, "ig": 4100, "assoc_ig": 0, "spotify": 2400},
+        {"name": "Big Girl", "cost": 150, "ig": 11800, "assoc_ig": 0, "spotify": 4800},
+        {"name": "Desert Sharks", "cost": 150, "ig": 11700, "assoc_ig": 0, "spotify": 4800},
+        {"name": "T!LT", "cost": 163, "ig": 4700, "assoc_ig": 0, "spotify": 10700},
+        {"name": "Venus Twins", "cost": 175, "ig": 10500, "assoc_ig": 0, "spotify": 1800},
+        {"name": "Avishag Rodrigues", "cost": 175, "ig": 4100, "assoc_ig": 0, "spotify": 2500},
+        {"name": "Daniel August", "cost": 180, "ig": 200, "assoc_ig": 5200, "spotify": 20},
+        {"name": "Tea Eater", "cost": 200, "ig": 4500, "assoc_ig": 0, "spotify": 1400},
+        {"name": "Sunshine Spazz", "cost": 213, "ig": 8400, "assoc_ig": 0, "spotify": 3500},
+        {"name": "95 Bulls", "cost": 233, "ig": 5200, "assoc_ig": 0, "spotify": 2500},
+        {"name": "Um, Jennifer?", "cost": 250, "ig": 15400, "assoc_ig": 0, "spotify": 49100},
+        {"name": "Dead Tooth", "cost": 250, "ig": 7300, "assoc_ig": 0, "spotify": 1800},
+        {"name": "Skorts", "cost": 258, "ig": 7100, "assoc_ig": 0, "spotify": 14000},
+        {"name": "Pinc Louds", "cost": 275, "ig": 25700, "assoc_ig": 0, "spotify": 29800},
+        {"name": "Francie Moon", "cost": 275, "ig": 6800, "assoc_ig": 0, "spotify": 1000},
+        {"name": "Balaclava", "cost": 300, "ig": 4000, "assoc_ig": 0, "spotify": 300},
+        {"name": "The Thing", "cost": 375, "ig": 13300, "assoc_ig": 0, "spotify": 149400},
+        {"name": "TVOD", "cost": 400, "ig": 8000, "assoc_ig": 0, "spotify": 4900},
+        {"name": "Native Sun", "cost": 475, "ig": 6900, "assoc_ig": 0, "spotify": 8200},
+        {"name": "Grace Bergere", "cost": 475, "ig": 3800, "assoc_ig": 0, "spotify": 7200},
+        {"name": "Pinklids", "cost": 475, "ig": 2600, "assoc_ig": 0, "spotify": 1100},
+        {"name": "Levitation Room", "cost": 500, "ig": 27000, "assoc_ig": 0, "spotify": 189300},
+        {"name": "Shilpa Ray", "cost": 500, "ig": 8800, "assoc_ig": 0, "spotify": 27600},
+        {"name": "Daddy Long Legs", "cost": 500, "ig": 18300, "assoc_ig": 0, "spotify": 21400},
+        {"name": "Dion Lunadon", "cost": 600, "ig": 7500, "assoc_ig": 0, "spotify": 7600},
+        {"name": "Soklo", "cost": 600, "ig": 32300, "assoc_ig": 0, "spotify": 1400},
+        {"name": "P.H.0", "cost": 600, "ig": 5400, "assoc_ig": 0, "spotify": 800},
+        {"name": "Nabihah Iqbal", "cost": 650, "ig": 60200, "assoc_ig": 0, "spotify": 208800},
+        {"name": "Fine Mess", "cost": 827, "ig": 4000, "assoc_ig": 265000, "spotify": 2300},
+        {"name": "Bodega", "cost": 900, "ig": 21500, "assoc_ig": 0, "spotify": 50200},
+        {"name": "Vial", "cost": 1000, "ig": 73400, "assoc_ig": 0, "spotify": 100200},
+        {"name": "A Place To Bury Strangers", "cost": 1100, "ig": 57300, "assoc_ig": 0, "spotify": 63900},
+        {"name": "The Mystery Lights", "cost": 2100, "ig": 26700, "assoc_ig": 0, "spotify": 591400},
+    ]
+    return pd.DataFrame(raw_data)
 
-# Direct URL to ensure the connection finds the right file
-# Make sure this sheet is set to "Anyone with the link can View"
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ/edit"
+# -----------------------------------------------------------------------------
+# CALCULATIONS
+# -----------------------------------------------------------------------------
+def get_marketing_strength(total_ig):
+    # Based on sheet analysis
+    if total_ig < 3000: return 1
+    if total_ig < 7000: return 2
+    if total_ig < 11000: return 3
+    if total_ig <= 20000: return 4
+    return 5
 
-# Establish connection
-conn = st.connection("gsheets", type=GSheetsConnection)
+def get_donation_strength(spotify):
+    # Based on sheet analysis
+    if spotify < 4900: return 1
+    if spotify < 6000: return 2
+    if spotify < 15000: return 3
+    if spotify <= 25000: return 4
+    return 5
 
-def clean_currency(x):
-    """Removes '$' and ',' from numbers so Python can do math."""
-    if isinstance(x, str):
-        return float(x.replace('$', '').replace(',', '').strip())
-    return x
+def get_bill_potential_and_label(total_strength):
+    # Returns (Label, Tier Code for sorting/logic)
+    if total_strength <= 2: return "Opener", "Opener"
+    if total_strength <= 5: return "Indirect Support", "Indirect Support"
+    if total_strength <= 7: return "Direct Support", "Direct Support"
+    return "Headliner", "Headliner"
 
-def load_data():
-    try:
-        # Load the "Log" tab (Artist Data)
-        artists_df = conn.read(spreadsheet=SHEET_URL, worksheet="Log", ttl="0")
-        
-        # Load the "Assumptions" tab (Budget Tiers)
-        assumptions_df = conn.read(spreadsheet=SHEET_URL, worksheet="Assumptions", ttl="0")
-        
-        # CLEAN THE DATA: Convert text like "$1,000" to number 1000.0
-        cols_to_clean = ['Average Cost', 'IG Followers', 'Associated IG Followers', 'Total IG Followers', 'Spotify Listeners']
-        for col in cols_to_clean:
-            if col in artists_df.columns:
-                artists_df[col] = artists_df[col].apply(clean_currency)
-                
-        return artists_df, assumptions_df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return None, None
+def check_affordability(bill_label, cost, assumptions):
+    budget = assumptions.get(bill_label, 0)
+    return "Yes" if cost <= budget else "No"
 
-artists_df, assumptions_df = load_data()
+# -----------------------------------------------------------------------------
+# UI LAYOUT
+# -----------------------------------------------------------------------------
+st.title("SB Artist Cost Analysis")
 
-if artists_df is not None and assumptions_df is not None:
-    # Create a dictionary for budgets: {'Headliner': 600, 'Direct Support': 200, ...}
-    budgets = dict(zip(assumptions_df['Bill Placement'], assumptions_df['Budget']))
+# --- Sidebar: Assumptions ---
+st.sidebar.header("Assumptions Configuration")
+st.sidebar.markdown("Configure budget per bill placement.")
+budget_headliner = st.sidebar.number_input("Headliner Budget ($)", value=600)
+budget_direct = st.sidebar.number_input("Direct Support Budget ($)", value=200)
+budget_indirect = st.sidebar.number_input("Indirect Support Budget ($)", value=100)
+budget_opener = st.sidebar.number_input("Opener Budget ($)", value=0)
 
-    # --- NAVIGATION ---
-    menu = ["Artist Dashboard", "New Projection", "Manage Assumptions"]
-    choice = st.sidebar.selectbox("Navigation", menu)
+assumptions = {
+    "Headliner": budget_headliner,
+    "Direct Support": budget_direct,
+    "Indirect Support": budget_indirect,
+    "Opener": budget_opener
+}
 
-    # --- PAGE 1: DASHBOARD ---
-    if choice == "Artist Dashboard":
-        st.header("Artist Database")
-        # specific column 'Band Name' from your Log file
-        band_name = st.selectbox("Select Band", artists_df['Band Name'].unique())
-        
-        if band_name:
-            row = artists_df[artists_df['Band Name'] == band_name].iloc[0]
-            
-            # Top Metrics
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Average Cost", f"${row['Average Cost']:,.2f}")
-            c2.metric("Total IG Followers", f"{row['Total IG Followers']:,.0f}")
-            c3.metric("Spotify Listeners", f"{row['Spotify Listeners']:,.0f}")
-            
-            st.divider()
-            
-            # Detailed Metrics from your file
-            c1, c2, c3 = st.columns(3)
-            c1.write(f"**Bill Potential:** {row['Bill Potential']}")
-            c2.write(f"**Marketing Strength:** {row['Marketing Strength']}")
-            c3.write(f"**Affordability:** {row['Affordability']}")
+# --- Main: Artist Selection ---
+df = get_initial_data()
+artist_names = df['name'].tolist()
+selected_artist_name = st.selectbox("Select an Artist", artist_names)
 
-    # --- PAGE 2: CALCULATOR ---
-    elif choice == "New Projection":
-        st.header("New Artist Projector")
-        with st.form("new_artist"):
-            name = st.text_input("Band Name")
-            cost = st.number_input("Proposed Cost ($)", min_value=0.0)
-            ig = st.number_input("IG Followers", min_value=0)
-            assoc_ig = st.number_input("Associated IG Followers", min_value=0)
-            
-            submitted = st.form_submit_button("Run Analysis")
-            
-            if submitted:
-                total_ig = ig + assoc_ig
-                # Logic: Check if Cost is <= Headliner Budget ($600)
-                limit = budgets.get("Headliner", 600) 
-                is_affordable = "Yes" if cost <= limit else "No"
-                
-                st.info(f"Results for {name}")
-                col1, col2 = st.columns(2)
-                col1.metric("Total Projected Reach", f"{total_ig:,}")
-                col2.metric(f"Affordable (Limit: ${limit})?", is_affordable)
+# Get current data for selected artist
+artist_row = df[df['name'] == selected_artist_name].iloc[0]
 
-    # --- PAGE 3: ASSUMPTIONS ---
-    elif choice == "Manage Assumptions":
-        st.header("Configure Budget Tiers")
-        # Edit the Assumptions table directly
-        edited_df = st.data_editor(assumptions_df)
-        
-        if st.button("Save to Google Sheets"):
-            try:
-                conn.update(spreadsheet=SHEET_URL, worksheet="Assumptions", data=edited_df)
-                st.success("Assumptions updated successfully!")
-            except Exception as e:
-                st.error(f"Could not save: {e}")
+st.markdown("---")
+col1, col2 = st.columns(2)
+
+# --- Input Section ---
+with col1:
+    st.subheader("Edit Artist Values")
+    new_cost = st.number_input("Average Cost ($)", value=int(artist_row['cost']))
+    new_ig = st.number_input("IG Followers", value=int(artist_row['ig']))
+    new_assoc_ig = st.number_input("Associated IG Followers", value=int(artist_row['assoc_ig']))
+    new_spotify = st.number_input("Spotify Listeners", value=int(artist_row['spotify']))
+
+# --- Calculation Section ---
+# 1. Total IG
+total_ig = new_ig + new_assoc_ig
+
+# 2. Cost Efficiency (IG per $1)
+# Avoid division by zero
+eff_divisor = new_cost if new_cost > 0 else 1
+cost_efficiency = total_ig / eff_divisor
+
+# 3. Strength Scores
+marketing_strength = get_marketing_strength(total_ig)
+donation_strength = get_donation_strength(new_spotify)
+total_strength = marketing_strength + donation_strength
+
+# 4. Placement & Affordability
+bill_label, bill_tier = get_bill_potential_and_label(total_strength)
+affordability = check_affordability(bill_label, new_cost, assumptions)
+
+# --- Output Section ---
+with col2:
+    st.subheader("Analysis Results")
+    
+    st.metric("Total IG Followers", f"{total_ig:,.0f}")
+    
+    # Cost Efficiency
+    eff_val = f"{cost_efficiency:,.0f}"
+    if new_cost == 0: eff_val += " (Infinite/Base)"
+    st.metric("Cost Efficiency (IG/$)", eff_val)
+    
+    st.markdown("#### Strength Metrics")
+    c_m, c_d, c_t = st.columns(3)
+    c_m.metric("Marketing", marketing_strength)
+    c_d.metric("Donation", donation_strength)
+    c_t.metric("Total", total_strength)
+    
+    st.markdown("#### Booking")
+    st.info(f"**Bill Potential:** {bill_label}")
+    
+    if affordability == "Yes":
+        st.success(f"**Affordable?** {affordability}")
+    else:
+        st.error(f"**Affordable?** {affordability}")
+
+st.markdown("---")
+[span_0](start_span)st.caption("Data derived from 'Copy of SB Artist Cost Analysis' Google Sheet[span_0](end_span). Calculations based on inferred formulas from Sheet 2.")
