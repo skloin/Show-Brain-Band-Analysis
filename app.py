@@ -20,73 +20,78 @@ def get_connection():
     return client
 
 def get_data():
-    """Fetches data safely, ignoring empty header columns."""
+    """Fetches data safely from the second tab (Log)."""
     client = get_connection()
     sheet_url = "https://docs.google.com/spreadsheets/d/1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ/edit?usp=drivesdk"
     sh = client.open_by_url(sheet_url)
-    worksheet = sh.get_worksheet(0) # First tab
     
-    # CRASH-PROOF METHOD: Get all values as a simple list of lists
-    # This ignores "duplicate headers" errors because it doesn't map them automatically
+    # ---------------------------------------------------------
+    # CRITICAL FIX: CHANGED INDEX TO 1 (The Second Tab)
+    # If this still fails, try replacing 1 with "Log" (quotes included)
+    # ---------------------------------------------------------
+    try:
+        worksheet = sh.get_worksheet(1) 
+    except:
+        # Fallback if there is only 1 tab or index error
+        worksheet = sh.get_worksheet(0)
+
     raw_rows = worksheet.get_all_values()
     
-    # Row 0 is headers, Row 1+ is data
-    # We manually map the columns by Index to be safe
-    # Based on your CSV: 
-    # Col 0 = Band Name, Col 1 = Cost, Col 2 = IG, Col 3 = Assoc IG, Col 7 = Spotify
-    
     cleaned_data = []
-    # Skip the first row (headers)
+    # Skip header row
     for row in raw_rows[1:]:
-        # specific try/except to handle if a row is shorter than expected
         try:
-            # Clean helper function to remove symbols like '$' or ','
+            # Helper to clean currency/numbers
             def clean_num(val):
                 if isinstance(val, str):
                     return val.replace('$', '').replace(',', '').strip()
                 return val
 
-            # Parse numbers safely
+            # Map Columns based on your Log CSV
+            # Col 0 = Name, Col 1 = Cost, Col 2 = IG, Col 3 = Assoc, Col 7 = Spotify
+            name = row[0]
+            if not name: continue # Skip empty rows
+
             c_cost = int(clean_num(row[1]) or 0) if len(row) > 1 else 0
             c_ig = int(clean_num(row[2]) or 0) if len(row) > 2 else 0
             c_assoc = int(clean_num(row[3]) or 0) if len(row) > 3 else 0
-            c_spot = int(clean_num(row[7]) or 0) if len(row) > 7 else 0 # Spotify is usually column H (index 7)
+            c_spot = int(clean_num(row[7]) or 0) if len(row) > 7 else 0
 
             cleaned_data.append({
-                "name": row[0],
+                "name": name,
                 "cost": c_cost,
                 "ig": c_ig,
                 "assoc_ig": c_assoc,
                 "spotify": c_spot
             })
         except Exception:
-            continue # Skip bad rows
+            continue
             
     return pd.DataFrame(cleaned_data)
 
 def add_artist_to_sheet(name, cost, ig, assoc_ig, spotify):
-    """Appends a new artist to the Google Sheet."""
+    """Appends a new artist to the Log Sheet."""
     client = get_connection()
     sheet_url = "https://docs.google.com/spreadsheets/d/1CSOn7X-pL_WACa-RloS7g_rgxVwd6e_DkZbsax7liGQ/edit?usp=drivesdk"
     sh = client.open_by_url(sheet_url)
-    worksheet = sh.get_worksheet(0)
     
-    # We only append the columns we control. 
-    # The sheet formulas will fill in the blanks automatically for the other columns.
-    # Order: Name, Cost, IG, AssocIG, TotalIG(formula), Efficiency(formula), Strength(formula), Spotify
-    # To support your sheet's structure, we might need empty strings for formula columns if we append a whole row.
-    # Safer Strategy: Append just the values we have to the first few columns.
+    # Same Fix Here: Write to the second tab
+    try:
+        worksheet = sh.get_worksheet(1)
+    except:
+        worksheet = sh.get_worksheet(0)
     
-    # Construct row: Name, Cost, IG, AssocIG, "", "", "", Spotify
-    # Note: This might shift if your sheet expects exact column matching. 
-    # For now, we append the raw inputs. You may need to drag formulas down in the sheet itself.
+    # Append row. 
+    # Note: We leave empty strings "" for the columns that contain formulas in your sheet
+    # (Total IG, Efficiency, etc.) so the sheet can calculate them.
+    # Structure: Name | Cost | IG | Assoc | [Formula] | [Formula] | [Formula] | Spotify
     new_row = [name, cost, ig, assoc_ig, "", "", "", spotify]
     
     worksheet.append_row(new_row)
     st.cache_data.clear()
 
 # -----------------------------------------------------------------------------
-# CALCULATIONS
+# CALCULATIONS (Same as before)
 # -----------------------------------------------------------------------------
 def get_marketing_strength(total_ig):
     if total_ig < 3000: return 1
@@ -119,9 +124,6 @@ st.title("SB Artist Cost Analysis (Live Sync)")
 
 # --- Sidebar ---
 st.sidebar.header("Configuration")
-
-# 1. Budget Assumptions
-st.sidebar.subheader("Budget Assumptions")
 budget_headliner = st.sidebar.number_input("Headliner Budget ($)", value=600)
 budget_direct = st.sidebar.number_input("Direct Support Budget ($)", value=200)
 budget_indirect = st.sidebar.number_input("Indirect Support Budget ($)", value=100)
@@ -134,7 +136,6 @@ assumptions = {
     "Opener": budget_opener
 }
 
-# 2. Add New Artist Section
 st.sidebar.markdown("---")
 with st.sidebar.expander("➕ Add New Artist to Sheet"):
     with st.form("add_artist_form"):
@@ -147,80 +148,62 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
         submitted = st.form_submit_button("Save to Google Sheet")
         if submitted:
             if new_name:
-                with st.spinner("Saving to Google Sheet..."):
+                with st.spinner("Saving..."):
                     try:
                         add_artist_to_sheet(new_name, new_base_cost, new_base_ig, new_base_assoc, new_base_spot)
-                        st.success(f"Added {new_name} to the live sheet! Refreshing...")
+                        st.success(f"Added {new_name}! Refreshing...")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error saving to sheet: {e}")
+                        st.error(f"Error: {e}")
             else:
-                st.error("Please enter a name.")
+                st.error("Name required.")
 
 # --- Main Area ---
-
 try:
-    # Fetch Data
     df = get_data()
     
-    # Sort names
-    artist_names = sorted(df['name'].unique().tolist())
-    
-    # Selector
-    selected_artist_name = st.selectbox("Select an Artist", artist_names)
+    if not df.empty:
+        artist_names = sorted(df['name'].unique().tolist())
+        selected_artist_name = st.selectbox("Select an Artist", artist_names)
+        artist_row = df[df['name'] == selected_artist_name].iloc[0]
 
-    # Get current data for selected artist
-    artist_row = df[df['name'] == selected_artist_name].iloc[0]
+        st.markdown("---")
+        col1, col2 = st.columns(2)
 
-    st.markdown("---")
-    col1, col2 = st.columns(2)
+        with col1:
+            st.subheader(f"Edit: {selected_artist_name}")
+            calc_cost = st.number_input("Avg Cost ($)", value=int(artist_row['cost']))
+            calc_ig = st.number_input("IG Followers", value=int(artist_row['ig']))
+            calc_assoc_ig = st.number_input("Assoc IG", value=int(artist_row['assoc_ig']))
+            calc_spotify = st.number_input("Spotify", value=int(artist_row['spotify']))
 
-    # --- Input Section (Main) ---
-    with col1:
-        st.subheader(f"Edit Values: {selected_artist_name}")
-        st.caption("Adjust values here to see how metrics change (Local simulation only).")
-        
-        calc_cost = st.number_input("Average Cost ($)", value=int(artist_row['cost']))
-        calc_ig = st.number_input("IG Followers", value=int(artist_row['ig']))
-        calc_assoc_ig = st.number_input("Associated IG Followers", value=int(artist_row['assoc_ig']))
-        calc_spotify = st.number_input("Spotify Listeners", value=int(artist_row['spotify']))
+        total_ig = calc_ig + calc_assoc_ig
+        eff_divisor = calc_cost if calc_cost > 0 else 1
+        cost_efficiency = total_ig / eff_divisor
+        marketing_strength = get_marketing_strength(total_ig)
+        donation_strength = get_donation_strength(calc_spotify)
+        total_strength = marketing_strength + donation_strength
+        bill_label, bill_tier = get_bill_potential_and_label(total_strength)
+        affordability = check_affordability(bill_label, calc_cost, assumptions)
 
-    # --- Calculation Section ---
-    total_ig = calc_ig + calc_assoc_ig
-    eff_divisor = calc_cost if calc_cost > 0 else 1
-    cost_efficiency = total_ig / eff_divisor
-
-    marketing_strength = get_marketing_strength(total_ig)
-    donation_strength = get_donation_strength(calc_spotify)
-    total_strength = marketing_strength + donation_strength
-
-    bill_label, bill_tier = get_bill_potential_and_label(total_strength)
-    affordability = check_affordability(bill_label, calc_cost, assumptions)
-
-    # --- Output Section ---
-    with col2:
-        st.subheader("Analysis Results")
-        
-        st.metric("Total IG Followers", f"{total_ig:,.0f}")
-        
-        eff_val = f"{cost_efficiency:,.0f}"
-        if calc_cost == 0: eff_val += " (Infinite/Base)"
-        st.metric("Cost Efficiency (IG/$)", eff_val)
-        
-        st.markdown("#### Strength Metrics")
-        c_m, c_d, c_t = st.columns(3)
-        c_m.metric("Marketing", marketing_strength)
-        c_d.metric("Donation", donation_strength)
-        c_t.metric("Total", total_strength)
-        
-        st.markdown("#### Booking")
-        st.info(f"**Bill Potential:** {bill_label}")
-        
-        if affordability == "Yes":
-            st.success(f"**Affordable?** {affordability}")
-        else:
-            st.error(f"**Affordable?** {affordability}")
+        with col2:
+            st.subheader("Results")
+            st.metric("Total IG", f"{total_ig:,.0f}")
+            st.metric("IG/$", f"{cost_efficiency:,.0f}")
+            
+            st.markdown("#### Strength")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Mkt", marketing_strength)
+            c2.metric("Don", donation_strength)
+            c3.metric("Tot", total_strength)
+            
+            st.info(f"**Potential:** {bill_label}")
+            if affordability == "Yes":
+                st.success(f"**Affordable?** {affordability}")
+            else:
+                st.error(f"**Affordable?** {affordability}")
+    else:
+        st.warning("No data found in the second tab. Please check your sheet tabs.")
 
 except Exception as e:
-    st.error("Error reading data.")
-    st.write(f"Details: {e}")
+    st.error(f"Connection Error: {e}")
