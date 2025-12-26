@@ -111,7 +111,7 @@ def check_affordability(bill_label, cost, assumptions):
 # -----------------------------------------------------------------------------
 # UI LAYOUT
 # -----------------------------------------------------------------------------
-st.title("SB Artist Cost Analysis")
+st.title("Show Brain Booking Analysis")
 
 # --- Sidebar ---
 st.sidebar.header("Configuration")
