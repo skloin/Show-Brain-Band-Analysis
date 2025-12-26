@@ -193,9 +193,9 @@ try:
             
             st.markdown("#### Strength")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Mkt", marketing_strength)
-            c2.metric("Don", donation_strength)
-            c3.metric("Tot", total_strength)
+            c1.metric("Marketing Reach", marketing_strength)
+            c2.metric("Crowd/Donation Draw", donation_strength)
+            c3.metric("Total", total_strength)
             
             st.info(f"**Potential:** {bill_label}")
             if affordability == "Yes":
