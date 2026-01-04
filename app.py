@@ -43,7 +43,7 @@ def get_data():
                 return val
 
             # Map Columns based on your Log CSV
-            # Col 0=Name, 1=Cost, 2=IG, 3=Assoc, 7=Spotify, 8=YEAR (New)
+            # Col 0=Name, 1=Cost, 2=IG, 3=Assoc, 7=Spotify, 8=YEAR
             name = row[0]
             if not name: continue 
 
@@ -115,10 +115,22 @@ def check_affordability(bill_label, cost, assumptions):
 # -----------------------------------------------------------------------------
 # UI LAYOUT
 # -----------------------------------------------------------------------------
-st.title("Show Brain Booking Analyzer (Live Sync)")
+st.title("Show Brain Booking Analyzer")
 
 # --- Sidebar ---
 st.sidebar.header("Configuration")
+
+# 1. NEW: Year Dropdown in Configuration
+# We use multiselect so you can see "2025" and "2026" at the same time if needed.
+# Added 2000 as requested.
+filter_years = st.sidebar.multiselect(
+    "Select Year(s)",
+    options=["2026", "2025", "2000"],
+    default=["2026"]
+)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Budgets")
 budget_headliner = st.sidebar.number_input("Headliner Budget ($)", value=600)
 budget_direct = st.sidebar.number_input("Direct Support Budget ($)", value=200)
 budget_indirect = st.sidebar.number_input("Indirect Support Budget ($)", value=100)
@@ -139,8 +151,9 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
         new_base_ig = st.number_input("IG Followers", min_value=0, value=0)
         new_base_assoc = st.number_input("Assoc. IG", min_value=0, value=0)
         new_base_spot = st.number_input("Spotify", min_value=0, value=0)
-        # Added Year Selection for Entry
-        new_year = st.selectbox("Year", ["2025", "2026"], index=1)
+        
+        # Helper dropdown for adding data (matches the config options)
+        new_year = st.selectbox("Year", ["2026", "2025", "2000"], index=0)
         
         submitted = st.form_submit_button("Save to Google Sheet")
         if submitted:
@@ -161,29 +174,13 @@ try:
     
     if not df.empty:
         # ------------------------------------------------------
-        # NEW: Year Filtering Logic
+        # NEW: Filter Data based on Sidebar Selection
         # ------------------------------------------------------
-        # Get unique years from the data, sort them
-        available_years = sorted(df['year'].unique())
-        
-        # Multiselect widget - Defaults to the most recent year (2026)
-        # If 2026 doesn't exist yet, it defaults to everything.
-        default_year = [str(max(available_years))] if available_years else []
-        
-        selected_years = st.multiselect(
-            "Filter by Year", 
-            options=available_years, 
-            default=default_year
-        )
-        
-        # Filter the DataFrame based on selection
-        if selected_years:
-            df_filtered = df[df['year'].isin(selected_years)]
+        if filter_years:
+            df_filtered = df[df['year'].isin(filter_years)]
         else:
-            df_filtered = df # If nothing selected, show all
+            df_filtered = df # If user clears the box, show all
             
-        # ------------------------------------------------------
-        
         if not df_filtered.empty:
             artist_names = sorted(df_filtered['name'].unique().tolist())
             selected_artist_name = st.selectbox("Select an Artist", artist_names)
@@ -228,7 +225,7 @@ try:
                 else:
                     st.error(f"**Affordable?** {affordability}")
         else:
-            st.warning("No artists found for the selected Year(s).")
+            st.warning(f"No artists found for years: {', '.join(filter_years)}")
     else:
         st.warning("No data found in the second tab. Please check your sheet tabs.")
 
