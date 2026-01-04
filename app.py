@@ -120,13 +120,12 @@ st.title("Show Brain Booking Analyzer")
 # --- Sidebar ---
 st.sidebar.header("Configuration")
 
-# 1. NEW: Year Dropdown in Configuration
-# We use multiselect so you can see "2025" and "2026" at the same time if needed.
-# Added 2000 as requested.
-filter_years = st.sidebar.multiselect(
-    "Select Year(s)",
+# 1. SIDEBAR CONFIG: Single Select Dropdown
+# This sets the "Context" for the app (and the default for the main filter)
+config_year = st.sidebar.selectbox(
+    "Primary Year",
     options=["2026", "2025", "2000"],
-    default=["2026"]
+    index=0
 )
 
 st.sidebar.markdown("---")
@@ -152,8 +151,12 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
         new_base_assoc = st.number_input("Assoc. IG", min_value=0, value=0)
         new_base_spot = st.number_input("Spotify", min_value=0, value=0)
         
-        # Helper dropdown for adding data (matches the config options)
-        new_year = st.selectbox("Year", ["2026", "2025", "2000"], index=0)
+        # 2. ADD FORM: Defaults to the Sidebar Config choice
+        # We find the index of the config_year to set the default
+        year_options = ["2026", "2025", "2000"]
+        default_index = year_options.index(config_year) if config_year in year_options else 0
+        
+        new_year = st.selectbox("Year", year_options, index=default_index)
         
         submitted = st.form_submit_button("Save to Google Sheet")
         if submitted:
@@ -174,12 +177,29 @@ try:
     
     if not df.empty:
         # ------------------------------------------------------
-        # NEW: Filter Data based on Sidebar Selection
+        # 3. MAIN AREA: Multiselect Filter
+        # Defaults to the Sidebar selection, but allows adding others
         # ------------------------------------------------------
-        if filter_years:
-            df_filtered = df[df['year'].isin(filter_years)]
+        available_years = sorted(df['year'].unique())
+        
+        # Ensure the config_year is in the available list to avoid errors if sheet is empty
+        if config_year not in available_years and available_years:
+             # If config year has no data yet, just default to what we have
+             default_view = available_years 
         else:
-            df_filtered = df # If user clears the box, show all
+             default_view = [config_year]
+
+        selected_years = st.multiselect(
+            "Filter View by Year", 
+            options=available_years, 
+            default=default_view
+        )
+        
+        # Apply Filter
+        if selected_years:
+            df_filtered = df[df['year'].isin(selected_years)]
+        else:
+            df_filtered = df # Show all if nothing selected
             
         if not df_filtered.empty:
             artist_names = sorted(df_filtered['name'].unique().tolist())
@@ -225,7 +245,7 @@ try:
                 else:
                     st.error(f"**Affordable?** {affordability}")
         else:
-            st.warning(f"No artists found for years: {', '.join(filter_years)}")
+            st.warning(f"No artists found for years: {', '.join(selected_years)}")
     else:
         st.warning("No data found in the second tab. Please check your sheet tabs.")
 
