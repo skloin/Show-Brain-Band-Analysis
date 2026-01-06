@@ -121,7 +121,6 @@ st.title("Show Brain Booking Analyzer")
 st.sidebar.header("Configuration")
 
 # 1. SIDEBAR CONFIG: Single Select Dropdown
-# This sets the "Context" for the app (and the default for the main filter)
 config_year = st.sidebar.selectbox(
     "Primary Year",
     options=["2026", "2025", "2000"],
@@ -152,10 +151,8 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
         new_base_spot = st.number_input("Spotify", min_value=0, value=0)
         
         # 2. ADD FORM: Defaults to the Sidebar Config choice
-        # We find the index of the config_year to set the default
         year_options = ["2026", "2025", "2000"]
         default_index = year_options.index(config_year) if config_year in year_options else 0
-        
         new_year = st.selectbox("Year", year_options, index=default_index)
         
         submitted = st.form_submit_button("Save to Google Sheet")
@@ -176,15 +173,10 @@ try:
     df = get_data()
     
     if not df.empty:
-        # ------------------------------------------------------
         # 3. MAIN AREA: Multiselect Filter
-        # Defaults to the Sidebar selection, but allows adding others
-        # ------------------------------------------------------
         available_years = sorted(df['year'].unique())
         
-        # Ensure the config_year is in the available list to avoid errors if sheet is empty
         if config_year not in available_years and available_years:
-             # If config year has no data yet, just default to what we have
              default_view = available_years 
         else:
              default_view = [config_year]
@@ -199,25 +191,48 @@ try:
         if selected_years:
             df_filtered = df[df['year'].isin(selected_years)]
         else:
-            df_filtered = df # Show all if nothing selected
+            df_filtered = df 
             
         if not df_filtered.empty:
             artist_names = sorted(df_filtered['name'].unique().tolist())
             selected_artist_name = st.selectbox("Select an Artist", artist_names)
             
-            # Locate the specific row in the filtered DF
-            artist_row = df_filtered[df_filtered['name'] == selected_artist_name].iloc[0]
+            # ------------------------------------------------------------
+            # NEW LOGIC: AVERAGE COST ONLY
+            # ------------------------------------------------------------
+            # 1. Filter down to ALL rows for this artist in the selected timeframe
+            artist_rows = df_filtered[df_filtered['name'] == selected_artist_name]
+            
+            # 2. Aggregations
+            # Cost = MEAN (Average of all shows)
+            avg_cost = int(artist_rows['cost'].mean())
+            
+            # Socials = MAX (Highest value found - assumes growth)
+            curr_ig = int(artist_rows['ig'].max())
+            curr_assoc = int(artist_rows['assoc_ig'].max())
+            curr_spot = int(artist_rows['spotify'].max())
+            
+            # Get list of years involved for the display label
+            years_found = sorted(artist_rows['year'].unique().tolist())
+            year_label = ", ".join(years_found)
 
             st.markdown("---")
             col1, col2 = st.columns(2)
 
             with col1:
                 st.subheader(f"Edit: {selected_artist_name}")
-                calc_cost = st.number_input("Avg Cost ($)", value=int(artist_row['cost']))
-                calc_ig = st.number_input("IG Followers", value=int(artist_row['ig']))
-                calc_assoc_ig = st.number_input("Assoc IG", value=int(artist_row['assoc_ig']))
-                calc_spotify = st.number_input("Spotify", value=int(artist_row['spotify']))
-                st.caption(f"📅 Record Year: {artist_row['year']}")
+                
+                # We use the Averaged values for Cost, Max for others
+                calc_cost = st.number_input("Avg Cost ($)", value=avg_cost)
+                calc_ig = st.number_input("IG Followers", value=curr_ig)
+                calc_assoc_ig = st.number_input("Assoc IG", value=curr_assoc)
+                calc_spotify = st.number_input("Spotify", value=curr_spot)
+                
+                # Visual Indicator if we are averaging
+                if len(artist_rows) > 1:
+                    st.info(f"📊 Avg Cost / Max Socials from: {year_label}")
+                else:
+                    st.caption(f"📅 Record Year: {year_label}")
 
             total_ig = calc_ig + calc_assoc_ig
             eff_divisor = calc_cost if calc_cost > 0 else 1
