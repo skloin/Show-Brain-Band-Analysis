@@ -4,6 +4,184 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # -----------------------------------------------------------------------------
+# CUSTOM PUNK/INDIE ROCK STYLING
+# -----------------------------------------------------------------------------
+st.set_page_config(page_title="Show Brain | Booking", page_icon="🎸", layout="wide")
+
+punk_css = """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Condensed:wght@400;700&display=swap');
+    
+    /* Main background - dark gritty texture */
+    .stApp {
+        background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+        color: #f0f0f0;
+    }
+    
+    /* Headers - bold punk aesthetic */
+    h1, h2, h3 {
+        font-family: 'Bebas Neue', sans-serif !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+        color: #ff1744 !important;
+        text-shadow: 3px 3px 0px rgba(0,0,0,0.7), 
+                     0 0 20px rgba(255,23,68,0.5) !important;
+    }
+    
+    h1 {
+        font-size: 3.5rem !important;
+        border-bottom: 4px solid #ff1744 !important;
+        padding-bottom: 15px !important;
+        margin-bottom: 30px !important;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1f1f1f 0%, #151515 100%) !important;
+        border-right: 3px solid #ff1744 !important;
+    }
+    
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #00e5ff !important;
+        text-shadow: 2px 2px 0px rgba(0,0,0,0.8),
+                     0 0 15px rgba(0,229,255,0.5) !important;
+    }
+    
+    /* Input boxes - neon accents */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        background-color: #2a2a2a !important;
+        color: #ffffff !important;
+        border: 2px solid #00e5ff !important;
+        border-radius: 4px !important;
+        font-family: 'Roboto Condensed', sans-serif !important;
+        font-weight: 700 !important;
+    }
+    
+    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus {
+        border-color: #ff1744 !important;
+        box-shadow: 0 0 15px rgba(255,23,68,0.6) !important;
+    }
+    
+    /* Buttons - punk rock style */
+    .stButton button {
+        background: linear-gradient(135deg, #ff1744 0%, #c51162 100%) !important;
+        color: white !important;
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 1.2rem !important;
+        letter-spacing: 2px !important;
+        border: none !important;
+        border-radius: 0px !important;
+        padding: 12px 30px !important;
+        text-transform: uppercase !important;
+        box-shadow: 4px 4px 0px rgba(0,0,0,0.5),
+                    0 0 20px rgba(255,23,68,0.4) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton button:hover {
+        background: linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%) !important;
+        box-shadow: 4px 4px 0px rgba(0,0,0,0.7),
+                    0 0 30px rgba(0,229,255,0.6) !important;
+        transform: translate(-2px, -2px) !important;
+    }
+    
+    /* Metrics - grungy cards */
+    [data-testid="stMetric"] {
+        background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%) !important;
+        padding: 15px !important;
+        border-left: 4px solid #ff1744 !important;
+        border-radius: 4px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+    }
+    
+    [data-testid="stMetricValue"] {
+        color: #00e5ff !important;
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 2rem !important;
+        text-shadow: 0 0 10px rgba(0,229,255,0.5) !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #b0b0b0 !important;
+        font-family: 'Roboto Condensed', sans-serif !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        font-size: 0.9rem !important;
+    }
+    
+    /* Info/Success/Error boxes - vibrant */
+    .stAlert {
+        border-radius: 4px !important;
+        border-left: 5px solid !important;
+        font-family: 'Roboto Condensed', sans-serif !important;
+        font-weight: 700 !important;
+    }
+    
+    [data-baseweb="notification"] {
+        background-color: #2a2a2a !important;
+        border-radius: 4px !important;
+    }
+    
+    /* Multiselect - styled */
+    [data-baseweb="tag"] {
+        background-color: #ff1744 !important;
+        color: white !important;
+        font-family: 'Roboto Condensed', sans-serif !important;
+        font-weight: 700 !important;
+        border-radius: 3px !important;
+    }
+    
+    /* Expander - accordion style */
+    [data-testid="stExpander"] {
+        background-color: #2a2a2a !important;
+        border: 2px solid #00e5ff !important;
+        border-radius: 4px !important;
+    }
+    
+    /* Dividers - neon lines */
+    hr {
+        border: none !important;
+        height: 2px !important;
+        background: linear-gradient(90deg, 
+            transparent 0%, 
+            #ff1744 20%, 
+            #00e5ff 50%, 
+            #ff1744 80%, 
+            transparent 100%) !important;
+        margin: 30px 0 !important;
+    }
+    
+    /* General text */
+    p, li, label {
+        font-family: 'Roboto Condensed', sans-serif !important;
+        color: #e0e0e0 !important;
+    }
+    
+    /* Column borders */
+    [data-testid="column"] {
+        border: 2px solid #2a2a2a;
+        padding: 20px;
+        border-radius: 4px;
+        background: rgba(26, 26, 26, 0.5);
+    }
+</style>
+"""
+
+st.markdown(punk_css, unsafe_allow_html=True)
+
+# Add a punk rock header banner
+st.markdown("""
+<div style="text-align: center; padding: 20px 0; margin-bottom: 30px;">
+    <h1 style="margin: 0;">🎸 SHOW BRAIN 🎸</h1>
+    <p style="font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: #00e5ff; letter-spacing: 3px; margin: 10px 0 0 0;">
+        BOOKING ANALYZER | DIY OR DIE
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
 # GOOGLE SHEETS CONNECTION
 # -----------------------------------------------------------------------------
 SCOPES = [
@@ -33,17 +211,13 @@ def get_data():
     raw_rows = worksheet.get_all_values()
     
     cleaned_data = []
-    # Skip header row
     for row in raw_rows[1:]:
         try:
-            # Helper to clean currency/numbers
             def clean_num(val):
                 if isinstance(val, str):
                     return val.replace('$', '').replace(',', '').strip()
                 return val
 
-            # Map Columns based on your Log CSV
-            # Col 0=Name, 1=Cost, 2=IG, 3=Assoc, 7=Spotify, 8=YEAR
             name = row[0]
             if not name: continue 
 
@@ -51,8 +225,6 @@ def get_data():
             c_ig = int(clean_num(row[2]) or 0) if len(row) > 2 else 0
             c_assoc = int(clean_num(row[3]) or 0) if len(row) > 3 else 0
             c_spot = int(clean_num(row[7]) or 0) if len(row) > 7 else 0
-            
-            # Grab Year (Column I / Index 8). Default to 2025 if missing.
             c_year = str(row[8]).strip() if len(row) > 8 and row[8].strip() != "" else "2025"
 
             cleaned_data.append({
@@ -79,9 +251,7 @@ def add_artist_to_sheet(name, cost, ig, assoc_ig, spotify, year):
     except:
         worksheet = sh.get_worksheet(0)
     
-    # Structure: Name | Cost | IG | Assoc | [Formula] | [Formula] | [Formula] | Spotify | Year
     new_row = [name, cost, ig, assoc_ig, "", "", "", spotify, year]
-    
     worksheet.append_row(new_row)
     st.cache_data.clear()
 
@@ -113,22 +283,18 @@ def check_affordability(bill_label, cost, assumptions):
     return "Yes" if cost <= budget else "No"
 
 # -----------------------------------------------------------------------------
-# UI LAYOUT
+# SIDEBAR
 # -----------------------------------------------------------------------------
-st.title("Show Brain Booking Analyzer")
+st.sidebar.markdown("## ⚙️ CONFIGURATION")
 
-# --- Sidebar ---
-st.sidebar.header("Configuration")
-
-# 1. SIDEBAR CONFIG: Single Select Dropdown
 config_year = st.sidebar.selectbox(
-    "Primary Year",
+    "PRIMARY YEAR",
     options=["2026", "2025", "2000"],
     index=0
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Budgets")
+st.sidebar.markdown("## 💰 BUDGETS")
 budget_headliner = st.sidebar.number_input("Headliner Budget ($)", value=600)
 budget_direct = st.sidebar.number_input("Direct Support Budget ($)", value=200)
 budget_indirect = st.sidebar.number_input("Indirect Support Budget ($)", value=100)
@@ -142,7 +308,7 @@ assumptions = {
 }
 
 st.sidebar.markdown("---")
-with st.sidebar.expander("➕ Add New Artist to Sheet"):
+with st.sidebar.expander("➕ ADD NEW ARTIST"):
     with st.form("add_artist_form"):
         new_name = st.text_input("Band Name")
         new_base_cost = st.number_input("Cost ($)", min_value=0, value=0)
@@ -150,12 +316,11 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
         new_base_assoc = st.number_input("Assoc. IG", min_value=0, value=0)
         new_base_spot = st.number_input("Spotify", min_value=0, value=0)
         
-        # 2. ADD FORM: Defaults to the Sidebar Config choice
         year_options = ["2026", "2025", "2000"]
         default_index = year_options.index(config_year) if config_year in year_options else 0
         new_year = st.selectbox("Year", year_options, index=default_index)
         
-        submitted = st.form_submit_button("Save to Google Sheet")
+        submitted = st.form_submit_button("SAVE TO SHEET")
         if submitted:
             if new_name:
                 with st.spinner("Saving..."):
@@ -168,12 +333,13 @@ with st.sidebar.expander("➕ Add New Artist to Sheet"):
             else:
                 st.error("Name required.")
 
-# --- Main Area ---
+# -----------------------------------------------------------------------------
+# MAIN AREA
+# -----------------------------------------------------------------------------
 try:
     df = get_data()
     
     if not df.empty:
-        # 3. MAIN AREA: Multiselect Filter
         available_years = sorted(df['year'].unique())
         
         if config_year not in available_years and available_years:
@@ -182,12 +348,11 @@ try:
              default_view = [config_year]
 
         selected_years = st.multiselect(
-            "Filter View by Year", 
+            "🎯 FILTER VIEW BY YEAR", 
             options=available_years, 
             default=default_view
         )
         
-        # Apply Filter
         if selected_years:
             df_filtered = df[df['year'].isin(selected_years)]
         else:
@@ -195,24 +360,15 @@ try:
             
         if not df_filtered.empty:
             artist_names = sorted(df_filtered['name'].unique().tolist())
-            selected_artist_name = st.selectbox("Select an Artist", artist_names)
+            selected_artist_name = st.selectbox("🎤 SELECT AN ARTIST", artist_names)
             
-            # ------------------------------------------------------------
-            # NEW LOGIC: AVERAGE COST ONLY
-            # ------------------------------------------------------------
-            # 1. Filter down to ALL rows for this artist in the selected timeframe
             artist_rows = df_filtered[df_filtered['name'] == selected_artist_name]
             
-            # 2. Aggregations
-            # Cost = MEAN (Average of all shows)
             avg_cost = int(artist_rows['cost'].mean())
-            
-            # Socials = MAX (Highest value found - assumes growth)
             curr_ig = int(artist_rows['ig'].max())
             curr_assoc = int(artist_rows['assoc_ig'].max())
             curr_spot = int(artist_rows['spotify'].max())
             
-            # Get list of years involved for the display label
             years_found = sorted(artist_rows['year'].unique().tolist())
             year_label = ", ".join(years_found)
 
@@ -220,15 +376,13 @@ try:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.subheader(f"Edit: {selected_artist_name}")
+                st.markdown("### 📝 EDIT ARTIST DATA")
                 
-                # We use the Averaged values for Cost, Max for others
                 calc_cost = st.number_input("Avg Cost ($)", value=avg_cost)
                 calc_ig = st.number_input("IG Followers", value=curr_ig)
                 calc_assoc_ig = st.number_input("Assoc IG", value=curr_assoc)
                 calc_spotify = st.number_input("Spotify", value=curr_spot)
                 
-                # Visual Indicator if we are averaging
                 if len(artist_rows) > 1:
                     st.info(f"📊 Avg Cost / Max Socials from: {year_label}")
                 else:
@@ -244,21 +398,22 @@ try:
             affordability = check_affordability(bill_label, calc_cost, assumptions)
 
             with col2:
-                st.subheader("Results")
-                st.metric("Total IG", f"{total_ig:,.0f}")
-                st.metric("IG/$", f"{cost_efficiency:,.0f}")
+                st.markdown("### 🔥 RESULTS")
+                st.metric("TOTAL IG REACH", f"{total_ig:,.0f}")
+                st.metric("IG PER DOLLAR", f"{cost_efficiency:,.0f}")
                 
-                st.markdown("#### Strength")
+                st.markdown("#### ⚡ STRENGTH BREAKDOWN")
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Marketing Reach", marketing_strength)
-                c2.metric("Crowd/Donation Draw", donation_strength)
+                c1.metric("Marketing", marketing_strength)
+                c2.metric("Draw", donation_strength)
                 c3.metric("Total", total_strength)
                 
-                st.info(f"**Potential:** {bill_label}")
+                st.markdown(f"### 🎯 BILL POTENTIAL: **{bill_label.upper()}**")
+                
                 if affordability == "Yes":
-                    st.success(f"**Affordable?** {affordability}")
+                    st.success(f"✅ **AFFORDABLE** (within ${assumptions[bill_label]} budget)")
                 else:
-                    st.error(f"**Affordable?** {affordability}")
+                    st.error(f"❌ **OVER BUDGET** (exceeds ${assumptions[bill_label]} budget)")
         else:
             st.warning(f"No artists found for years: {', '.join(selected_years)}")
     else:
@@ -266,3 +421,13 @@ try:
 
 except Exception as e:
     st.error(f"Connection Error: {e}")
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; padding: 20px; opacity: 0.6;">
+    <p style="font-family: 'Roboto Condensed', sans-serif; font-size: 0.9rem; letter-spacing: 2px;">
+        POWERED BY DIY SPIRIT | BOOK LOUD, BOOK PROUD 🤘
+    </p>
+</div>
+""", unsafe_allow_html=True)
