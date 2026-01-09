@@ -171,12 +171,12 @@ punk_css = """
 
 st.markdown(punk_css, unsafe_allow_html=True)
 
-# Add header with logo
+# Add a punk rock header banner
 st.markdown("""
 <div style="text-align: center; padding: 20px 0; margin-bottom: 30px;">
-    <img src="https://i.postimg.cc/RFc3RLqy/show-brain-logo.png" style="max-width: 400px; width: 100%; margin-bottom: 10px;" alt="Show Brain">
+    <h1 style="margin: 0;">🎸 SHOW BRAIN 🎸</h1>
     <p style="font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: #00e5ff; letter-spacing: 3px; margin: 10px 0 0 0;">
-        BOOKING ANALYZER
+        BOOKING ANALYZER | DIY OR DIE
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -427,7 +427,7 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 20px; opacity: 0.6;">
     <p style="font-family: 'Roboto Condensed', sans-serif; font-size: 0.9rem; letter-spacing: 2px;">
-        SHOW BRAIN BOOKING ANALYZER
+        POWERED BY DIY SPIRIT | BOOK LOUD, BOOK PROUD 🤘
     </p>
 </div>
 """, unsafe_allow_html=True)
