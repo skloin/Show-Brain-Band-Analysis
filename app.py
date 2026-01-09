@@ -176,7 +176,7 @@ st.markdown("""
 <div style="text-align: center; padding: 20px 0; margin-bottom: 30px;">
     <h1 style="margin: 0;">🎸 SHOW BRAIN 🎸</h1>
     <p style="font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: #00e5ff; letter-spacing: 3px; margin: 10px 0 0 0;">
-        BOOKING ANALYZER | DIY OR DIE
+        BOOKING ANALYZER
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -427,7 +427,7 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 20px; opacity: 0.6;">
     <p style="font-family: 'Roboto Condensed', sans-serif; font-size: 0.9rem; letter-spacing: 2px;">
-        POWERED BY DIY SPIRIT | BOOK LOUD, BOOK PROUD 🤘
+        SHOW BRAIN BOOKING ANALYZER 🤘
     </p>
 </div>
 """, unsafe_allow_html=True)
